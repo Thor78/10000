@@ -303,7 +303,7 @@
 
         <div class="turn-info">
             <div class="current-player-name" id="current-player-display">Spieler 1</div>
-            <div class="turn-stats" id="turn-stats-display">Würfe: 3 | Wurf: 0 | Gesamt: 0</div>
+            <div class="turn-stats" id="turn-stats-display">Würfe: 3 | Selektion: 0 | Gesamt: 0</div>
         </div>
 
         <div class="dice-container" id="dice-grid">
@@ -337,8 +337,8 @@
         // Game State
         let players = [];
         let currentPlayerIdx = 0;
-        let turnScore = 0;
-        let currentRollScore = 0;
+        let roundScore = 0;  // Punkte der aktuellen Runde (alle Würfe kombiniert)
+        let selectedScore = 0;  // Punkte der aktuell selektierten Würfel
         let rollsLeft = 3;
         let dice = [
             { value: 1, selected: false, locked: false },
@@ -367,6 +367,28 @@
         const btnBank = document.getElementById('btn-bank');
         const btnHandoverConfirm = document.getElementById('btn-handover-confirm');
         const fsToggle = document.getElementById('fs-toggle');
+
+        // Scoring Rule Engine
+        function calculateScore(diceValues) {
+            let counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
+            diceValues.forEach(v => counts[v]++);
+
+            let score = 0;
+
+            for (let num = 1; num <= 6; num++) {
+                let count = counts[num];
+                if (count >= 3) {
+                    let base = (num === 1) ? 1000 : num * 100;
+                    let multiplier = Math.pow(2, count - 3);
+                    score += base * multiplier;
+                } else if (count > 0 && count < 3) {
+                    if (num === 1) score += count * 100;
+                    if (num === 5) score += count * 50;
+                }
+            }
+
+            return score;
+        }
 
         // Initialize Player Input Fields
         function updatePlayerInputs() {
@@ -455,8 +477,8 @@
 
         // Core Game Mechanics
         function initTurn() {
-            turnScore = 0;
-            currentRollScore = 0;
+            roundScore = 0;
+            selectedScore = 0;
             rollsLeft = 3;
             dice.forEach(d => { d.selected = false; d.locked = false; });
         }
@@ -491,46 +513,15 @@
                 diceElements.forEach((el, idx) => {
                     if (!dice[idx].locked) {
                         dice[idx].value = Math.floor(Math.random() * 6) + 1;
+                        dice[idx].selected = false;  // Reset Selektion nach neuem Wurf
                         el.classList.remove('rolling');
                     }
                 });
 
+                selectedScore = 0;  // Reset Selektion-Punkte nach neuem Wurf
                 isRolling = false;
-                evaluateCurrentRoll();
                 updateUI();
             }, 600);
-        }
-
-        // Scoring Evaluation - AKTUALISIERT: turnScore wird hier berechnet!
-        function evaluateCurrentRoll() {
-            let activeDiceValues = dice.filter(d => !d.locked).map(d => d.value);
-            
-            let counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
-            activeDiceValues.forEach(v => counts[v]++);
-
-            let rollScorePossible = 0;
-
-            for (let num = 1; num <= 6; num++) {
-                let count = counts[num];
-                if (count >= 3) {
-                    let base = (num === 1) ? 1000 : num * 100;
-                    let multiplier = Math.pow(2, count - 3);
-                    rollScorePossible += base * multiplier;
-                } else if (count > 0) {
-                    if (num === 1) { rollScorePossible += count * 100; }
-                    if (num === 5) { rollScorePossible += count * 50; }
-                }
-            }
-
-            if (rollScorePossible === 0) {
-                turnScore = 0; 
-                rollsLeft = 0;
-                document.getElementById('shake-instruction').innerText = "❌ Verwürfelt!";
-            } else {
-                // WICHTIG: Hier wird der Gesamtscore der Runde aktualisiert
-                currentRollScore = rollScorePossible;
-                turnScore += currentRollScore; // Akkumuliere alle Würfe dieser Runde
-            }
         }
 
         // Dice Selection - ONE CLICK
@@ -556,16 +547,24 @@
 
             if (val === 1 || val === 5 || count >= 3) {
                 dice[idx].selected = !dice[idx].selected;
+                
+                // Berechne neu die Punkte der selektierten Würfel
+                let selectedValues = dice.filter(d => d.selected && !d.locked).map(d => d.value);
+                selectedScore = calculateScore(selectedValues);
+                
                 updateUI();
             }
         }
 
-        // Bank Points - KORRIGIERT: Einfach turnScore addieren (der enthält bereits alle Würfe)
+        // Bank Points - KORRIGIERT
         function bankPoints() {
-            if (isRolling) return;
+            if (isRolling || rollsLeft === 3) return;
             
-            // turnScore enthält bereits die Summe aller Würfe dieser Runde
-            players[currentPlayerIdx].score += turnScore;
+            // Addiere selectedScore (aktuell selektierte Würfel) zu roundScore
+            roundScore += selectedScore;
+            
+            // Übertrage roundScore zu Gesamtscore des Spielers
+            players[currentPlayerIdx].score += roundScore;
 
             if (players[currentPlayerIdx].score >= 10000) {
                 alert(`👑 ${players[currentPlayerIdx].name} gewinnt!`);
@@ -617,7 +616,7 @@
         function updateUI() {
             // Turn Info
             document.getElementById('current-player-display').innerText = players[currentPlayerIdx].name;
-            document.getElementById('turn-stats-display').innerText = `Würfe: ${rollsLeft} | Wurf: ${currentRollScore} | Gesamt: ${turnScore}`;
+            document.getElementById('turn-stats-display').innerText = `Würfe: ${rollsLeft} | Selektion: ${selectedScore} | Gesamt: ${roundScore}`;
 
             // Dice Elements
             dice.forEach((d, idx) => {
