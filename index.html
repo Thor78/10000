@@ -94,7 +94,7 @@
         }
         .btn:active { background: var(--primary-hover); }
 
-        /* Main UI */
+        /* Main UI - Dynamic Layout */
         #game-screen {
             position: fixed;
             top: 0;
@@ -103,11 +103,11 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            padding: calc(var(--safe-top) + 8px) 12px calc(var(--safe-bottom) + 8px);
+            padding: calc(var(--safe-top) + 10px) 15px calc(var(--safe-bottom) + 10px);
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
-            gap: 6px;
+            justify-content: flex-start;
         }
         #game-screen.active { opacity: 1; pointer-events: auto; }
 
@@ -117,6 +117,7 @@
             align-items: center;
             flex-shrink: 0;
             font-size: 0.9rem;
+            min-height: 32px;
         }
         .toggle-fs {
             background: #333; color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; border: none;
@@ -125,30 +126,36 @@
         .turn-info {
             text-align: center;
             flex-shrink: 0;
-            padding: 4px 0;
+            padding: 12px 0;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .current-player-name { font-size: 1.4rem; font-weight: 800; }
-        .turn-stats { color: var(--text-secondary); margin-top: 2px; font-size: 0.85rem; }
+        .current-player-name { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+        .turn-stats { color: var(--text-secondary); margin-top: 5px; font-size: 0.9rem; }
 
-        /* Dice Area */
+        /* Dice Area - Flexible */
         .dice-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            gap: 12px;
             justify-items: center;
-            flex: 0 1 auto;
-            height: auto;
+            align-items: center;
+            flex: 1 1 auto;
+            min-height: 180px;
+            max-height: 280px;
         }
         .die {
-            width: 58px;
-            height: 58px;
+            width: 70px;
+            height: 70px;
             background: #fff;
             color: #000;
-            border-radius: 12px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: bold;
             box-shadow: 0 6px 0 #ccc, 0 10px 20px rgba(0,0,0,0.5);
             transition: transform 0.15s cubic-bezier(0.68, -0.55, 0.265, 1.55), background 0.15s, box-shadow 0.15s;
@@ -189,28 +196,29 @@
         .action-zone {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 10px;
             flex-shrink: 0;
+            padding-top: 10px;
         }
         .shake-hint {
             text-align: center;
             font-style: italic;
             color: var(--text-secondary);
-            font-size: 0.75rem;
-            padding: 3px;
+            font-size: 0.85rem;
+            padding: 6px;
             border: 1px dashed #444;
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         .button-group {
             display: flex;
-            gap: 6px;
+            gap: 10px;
         }
 
         .button-group .btn {
             flex: 1;
-            padding: 12px;
-            font-size: 0.95rem;
+            padding: 14px;
+            font-size: 1rem;
         }
 
         .button-group .btn:nth-child(1) {
@@ -229,7 +237,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: calc(var(--safe-top) + 20px) 30px calc(var(--safe-bottom) + 20px);
+            padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
             text-align: center;
             overflow-y: auto;
         }
@@ -243,12 +251,13 @@
             margin-bottom: 30px;
             width: 100%;
             max-width: 400px;
+            flex-shrink: 0;
         }
 
         .score-row {
             display: flex;
             justify-content: space-between;
-            padding: 10px 0;
+            padding: 12px 0;
             border-bottom: 1px solid #2a2a30;
             font-size: 1.1rem;
         }
@@ -257,7 +266,12 @@
         }
         .score-row.active-p { color: var(--primary-color); font-weight: bold; }
 
-        #handover-message { font-size: 1.2rem; margin-bottom: 20px; color: var(--text-color); }
+        #handover-message { 
+            font-size: 1.2rem; 
+            margin-bottom: 20px; 
+            color: var(--text-color);
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -303,7 +317,7 @@
 
         <div class="action-zone">
             <div class="shake-hint" id="shake-instruction">
-                📱 Schütteln oder klicken
+                📱 Schütteln oder klicken zum Würfeln
             </div>
             <div class="button-group">
                 <button class="btn" id="btn-roll-fallback">Würfeln</button>
@@ -563,14 +577,29 @@
         function nextPlayer() {
             currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
             
+            // Aktualisiere Scoreboard SOFORT vor Anzeige
+            updateScoreboard();
+            
             document.getElementById('handover-message').innerText = `Nächster Spieler:\n${players[currentPlayerIdx].name}`;
             handoverOverlay.classList.add('active');
+        }
+
+        // Scoreboard aktualisieren
+        function updateScoreboard() {
+            const scoreboard = document.getElementById('scoreboard');
+            scoreboard.innerHTML = '';
+            players.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = `score-row ${idx === currentPlayerIdx ? 'active-p' : ''}`;
+                row.innerHTML = `<span>${p.name}</span><span>${p.score} Pkt.</span>`;
+                scoreboard.appendChild(row);
+            });
         }
 
         btnHandoverConfirm.addEventListener('click', () => {
             handoverOverlay.classList.remove('active');
             initTurn();
-            document.getElementById('shake-instruction').innerText = "📱 Schütteln oder klicken";
+            document.getElementById('shake-instruction').innerText = "📱 Schütteln oder klicken zum Würfeln";
             updateUI();
         });
 
@@ -583,16 +612,6 @@
 
         // UI Update
         function updateUI() {
-            // Scoreboard auf Handover-Screen
-            const scoreboard = document.getElementById('scoreboard');
-            scoreboard.innerHTML = '';
-            players.forEach((p, idx) => {
-                const row = document.createElement('div');
-                row.className = `score-row ${idx === currentPlayerIdx ? 'active-p' : ''}`;
-                row.innerHTML = `<span>${p.name}</span><span>${p.score} Pkt.</span>`;
-                scoreboard.appendChild(row);
-            });
-
             // Turn Info
             document.getElementById('current-player-display').innerText = players[currentPlayerIdx].name;
             document.getElementById('turn-stats-display').innerText = `Würfe: ${rollsLeft} | Wurf: ${currentRollScore} | Gesamt: ${turnScore}`;
