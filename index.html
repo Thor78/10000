@@ -94,7 +94,7 @@
         }
         .btn:active { background: var(--primary-hover); }
 
-        /* Main UI - Dynamic Layout */
+        /* Main UI */
         #game-screen {
             position: fixed;
             top: 0;
@@ -577,19 +577,20 @@
         function nextPlayer() {
             currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
             
-            // Aktualisiere Scoreboard SOFORT vor Anzeige
+            // Aktualisiere Scoreboard SOFORT mit aktuellem Spielerstand
             updateScoreboard();
             
             document.getElementById('handover-message').innerText = `Nächster Spieler:\n${players[currentPlayerIdx].name}`;
             handoverOverlay.classList.add('active');
         }
 
-        // Scoreboard aktualisieren
+        // Scoreboard aktualisieren - zeigt ALLE aktuellen Scores
         function updateScoreboard() {
             const scoreboard = document.getElementById('scoreboard');
             scoreboard.innerHTML = '';
             players.forEach((p, idx) => {
                 const row = document.createElement('div');
+                // Markiere NUR den gerade spielenden Spieler (currentPlayerIdx ist schon erhöht)
                 row.className = `score-row ${idx === currentPlayerIdx ? 'active-p' : ''}`;
                 row.innerHTML = `<span>${p.name}</span><span>${p.score} Pkt.</span>`;
                 scoreboard.appendChild(row);
