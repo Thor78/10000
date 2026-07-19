@@ -161,21 +161,24 @@
             font-size: 2.2rem;
             font-weight: bold;
             box-shadow: 0 6px 0 #ccc, 0 10px 20px rgba(0,0,0,0.5);
-            transition: transform 0.1s ease, background 0.2s;
+            transition: transform 0.15s cubic-bezier(0.68, -0.55, 0.265, 1.55), background 0.15s, box-shadow 0.15s;
             position: relative;
+            cursor: pointer;
         }
         .die.selected {
             background: var(--primary-color);
             color: #000;
-            box-shadow: 0 6px 0 #1b8a43, 0 10px 20px rgba(0,0,0,0.3);
-            transform: translateY(4px);
+            box-shadow: 0 0px 0 #1b8a43, 0 0px 25px rgba(46, 213, 115, 0.8);
+            transform: scale(1.15) translateY(-8px);
+            animation: popSelect 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
         .die.locked {
             background: #444;
             color: #777;
             box-shadow: 0 2px 0 #222;
             transform: translateY(6px);
-            pointer-events: none;
+            cursor: not-allowed;
+            opacity: 0.8;
         }
         .die.rolling {
             animation: shake 0.15s infinite alternate;
@@ -184,6 +187,12 @@
         @keyframes shake {
             0% { transform: translate(2px, 2px) rotate(0deg); }
             100% { transform: translate(-2px, -2px) rotate(5deg); }
+        }
+
+        @keyframes popSelect {
+            0% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.25) translateY(-12px); }
+            100% { transform: scale(1.15) translateY(-8px); }
         }
 
         /* Interaction Area */
@@ -254,7 +263,7 @@
 
         <div class="turn-info">
             <div class="current-player-name" id="current-player-display">Spieler 1</div>
-            <div class="turn-stats" id="turn-stats-display">Wurf: 0/3 | Punkte dieser Runde: 0</div>
+            <div class="turn-stats" id="turn-stats-display">Würfe übrig: 3 | Wurf-Wert: 0 | Runden-Gesamt: 0</div>
         </div>
 
         <div class="dice-container" id="dice-grid">
@@ -495,14 +504,15 @@
             }
         }
 
-        // Tap on individual die to select it
+        // Tap on individual die to select it - ONE CLICK ONLY
         diceElements.forEach(el => {
-            el.addEventListener('touchstart', (e) => {
+            el.addEventListener('touchend', (e) => {
+                e.preventDefault();
                 const idx = parseInt(el.getAttribute('data-index'), 10);
                 toggleSelectDie(idx);
-            }, { passive: true });
+            }, { passive: false });
 
-            el.addEventListener('click', () => {
+            el.addEventListener('click', (e) => {
                 const idx = parseInt(el.getAttribute('data-index'), 10);
                 toggleSelectDie(idx);
             });
