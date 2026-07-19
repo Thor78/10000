@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>10.000 - Würfelspiel</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --surface-color: #1e1e24;
+            --primary-color: #2ed573;
+            --primary-hover: #26af5f;
+            --text-color: #ffffff;
+            --text-secondary: #a4b0be;
+            --danger-color: #ff4757;
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Setup Screen */
+        #setup-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+            overflow-y: auto;
+        }
+
+        .setup-container {
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 { text-align: center; color: var(--primary-color); font-size: 2.5rem; margin-bottom: 10px; }
+        label { font-size: 1.1rem; color: var(--text-secondary); }
+        
+        select, input {
+            width: 100%;
+            padding: 15px;
+            background: var(--surface-color);
+            border: 2px solid #333;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1.1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus, input:focus { border-color: var(--primary-color); }
+
+        #player-names-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            padding: 18px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+            text-align: center;
+        }
+        .btn:active { background: var(--primary-hover); }
+
+        /* Main UI */
+        #game-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: calc(var(--safe-top) + 10px) 15px calc(var(--safe-bottom) + 10px);
+            justify-content: space-between;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #game-screen.active { opacity: 1; pointer-events: auto; }
+
+        .header-ui {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .toggle-fs {
+            background: #333; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; border: none;
+        }
+
+        .scoreboard {
+            background: var(--surface-color);
+            border-radius: 16px;
+            padding: 15px;
+            margin-top: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #2a2a30;
+        }
+        .score-row.active-p { color: var(--primary-color); font-weight: bold; }
+
+        .turn-info {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .current-player-name { font-size: 1.8rem; font-weight: 800; }
+        .turn-stats { color: var(--text-secondary); margin-top: 5px; font-size: 1rem; }
+
+        /* Dice Area */
+        .dice-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            justify-items: center;
+            align-content: center;
+            flex: 1;
+            max-height: 260px;
+        }
+        .die {
+            width: 80px;
+            height: 80px;
+            background: #fff;
+            color: #000;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            box-shadow: 0 6px 0 #ccc, 0 10px 20px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease, background 0.2s;
+            position: relative;
+        }
+        .die.selected {
+            background: var(--primary-color);
+            color: #000;
+            box-shadow: 0 6px 0 #1b8a43, 0 10px 20px rgba(0,0,0,0.3);
+            transform: translateY(4px);
+        }
+        .die.locked {
+            background: #444;
+            color: #777;
+            box-shadow: 0 2px 0 #222;
+            transform: translateY(6px);
+            pointer-events: none;
+        }
+        .die.rolling {
+            animation: shake 0.15s infinite alternate;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(-2px, -2px) rotate(5deg); }
+        }
+
+        /* Interaction Area */
+        .action-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .shake-hint {
+            text-align: center;
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            padding: 5px;
+            border: 1px dashed #444;
+            border-radius: 8px;
+        }
+        
+        /* Overlay for Handover */
+        #handover-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+        }
+        #handover-overlay.active { display: flex; }
+        #handover-overlay h2 { font-size: 2rem; margin-bottom: 20px; color: var(--danger-color); }
+        #handover-overlay p { font-size: 1.2rem; margin-bottom: 30px; color: var(--text-color); }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-container">
+            <h1>10.000</h1>
+            <div>
+                <label for="player-count">Anzahl Spieler</label>
+                <select id="player-count" style="margin-top: 8px;">
+                    <option value="1">1 Spieler</option>
+                    <option value="2" selected>2 Spieler</option>
+                    <option value="3">3 Spieler</option>
+                    <option value="4">4 Spieler</option>
+                </select>
+            </div>
+            
+            <div id="player-names-container">
+                </div>
+
+            <button id="btn-start-game" class="btn" style="margin-top: 10px;">Spiel starten & Sensoren aktivieren</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div class="header-ui">
+            <span style="font-weight: bold; color: var(--primary-color);">10.000 Engine</span>
+            <button class="toggle-fs" id="fs-toggle">Fullscreen</button>
+        </div>
+
+        <div class="scoreboard" id="scoreboard">
+            </div>
+
+        <div class="turn-info">
+            <div class="current-player-name" id="current-player-display">Spieler 1</div>
+            <div class="turn-stats" id="turn-stats-display">Wurf: 0/3 | Punkte dieser Runde: 0</div>
+        </div>
+
+        <div class="dice-container" id="dice-grid">
+            <div class="die" data-index="0">6</div>
+            <div class="die" data-index="1">6</div>
+            <div class="die" data-index="2">6</div>
+            <div class="die" data-index="3">6</div>
+            <div class="die" data-index="4">6</div>
+            <div class="die" data-index="5">6</div>
+        </div>
+
+        <div class="action-zone">
+            <div class="shake-hint" id="shake-instruction">
+                📱 iPhone schütteln oder hier klicken zum Würfeln
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="btn-roll-fallback" style="flex: 1; background: #333; color: #fff; box-shadow: none;">Würfeln (Klick)</button>
+                <button class="btn" id="btn-bank" style="flex: 1; background: var(--primary-color);">Punkte sichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="handover-overlay" id="handover-screen">
+        <h2>Handy weitergeben!</h2>
+        <p id="handover-message">Nächster Spieler: ...</p>
+        <button class="btn" id="btn-handover-confirm">Ich habe das Handy bereit</button>
+    </div>
+
+    <script>
+        // Game State
+        let players = [];
+        let currentPlayerIdx = 0;
+        let turnScore = 0;
+        let currentRollScore = 0;
+        let rollsLeft = 3;
+        let dice = [
+            { value: 1, selected: false, locked: false },
+            { value: 1, selected: false, locked: false },
+            { value: 1, selected: false, locked: false },
+            { value: 1, selected: false, locked: false },
+            { value: 1, selected: false, locked: false },
+            { value: 1, selected: false, locked: false }
+        ];
+        let isRolling = false;
+
+        // Motion Tracking Variables
+        let lastX = null, lastY = null, lastZ = null;
+        let moveCounter = 0;
+        const SHAKE_THRESHOLD = 15; // Empfindlichkeit iPhone 17 Pro
+
+        // DOM Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const handoverOverlay = document.getElementById('handover-overlay');
+        const playerCountSelect = document.getElementById('player-count');
+        const playerNamesContainer = document.getElementById('player-names-container');
+        const btnStartGame = document.getElementById('btn-start-game');
+        const diceElements = document.querySelectorAll('.die');
+        const btnRollFallback = document.getElementById('btn-roll-fallback');
+        const btnBank = document.getElementById('btn-bank');
+        const btnHandoverConfirm = document.getElementById('btn-handover-confirm');
+        const fsToggle = document.getElementById('fs-toggle');
+
+        // Initialize Player Input Fields
+        function updatePlayerInputs() {
+            playerNamesContainer.innerHTML = '';
+            const count = parseInt(playerCountSelect.value, 10);
+            for (let i = 1; i <= count; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `Name Spieler ${i}`;
+                input.value = `Spieler ${i}`;
+                input.id = `player-name-${i}`;
+                playerNamesContainer.appendChild(input);
+            }
+        }
+        playerCountSelect.addEventListener('change', updatePlayerInputs);
+        updatePlayerInputs();
+
+        // Fullscreen Toggle
+        fsToggle.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // Motion Permission & Start Game
+        btnStartGame.addEventListener('click', async () => {
+            // Setup Players
+            players = [];
+            const count = parseInt(playerCountSelect.value, 10);
+            for (let i = 1; i <= count; i++) {
+                const name = document.getElementById(`player-name-${i}`).value.trim() || `Spieler ${i}`;
+                players.push({ name: name, score: 0 });
+            }
+
+            // iOS CoreMotion Permission Request
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        window.addEventListener('devicemotion', handleMotion, { passive: true });
+                    }
+                } catch (error) {
+                    console.log("Motion API nicht unterstützt oder blockiert. Fallback aktiv.");
+                }
+            } else {
+                // Desktop oder Android standardmäßig binden
+                window.addEventListener('devicemotion', handleMotion, { passive: true });
+            }
+
+            setupScreen.style.display = 'none';
+            gameScreen.classList.add('active');
+            initTurn();
+            updateUI();
+        });
+
+        // Motion Handler (Schütteln)
+        function handleMotion(event) {
+            if (isRolling || rollsLeft <= 0) return;
+
+            const acceleration = event.accelerationIncludingGravity;
+            if (!acceleration) return;
+
+            let x = acceleration.x;
+            let y = acceleration.y;
+            let z = acceleration.z;
+
+            if (lastX !== null) {
+                let deltaX = Math.abs(x - lastX);
+                let deltaY = Math.abs(y - lastY);
+                let deltaZ = Math.abs(z - lastZ);
+
+                if ((deltaX > SHAKE_THRESHOLD && deltaY > SHAKE_THRESHOLD) || deltaZ > SHAKE_THRESHOLD + 5) {
+                    moveCounter++;
+                    if (moveCounter > 2) { // Minimiert Fehlauslösungen bei leichten Neigungen
+                        executeRoll();
+                        moveCounter = 0;
+                    }
+                }
+            }
+
+            lastX = x;
+            lastY = y;
+            lastZ = z;
+        }
+
+        // Core Game Mechanics
+        function initTurn() {
+            turnScore = 0;
+            currentRollScore = 0;
+            rollsLeft = 3;
+            dice.forEach(d => { d.selected = false; d.locked = false; });
+        }
+
+        function executeRoll() {
+            if (isRolling || rollsLeft <= 0) return;
+
+            // Vor dem Wurf: Validiere, ob vorherige Punkte gesichert/gewertet werden können
+            // Bei Wurf 1 logischerweise frei, danach müssen neue Würfel gewählt worden sein.
+            let newlySelected = dice.filter(d => d.selected && !d.locked);
+            if (rollsLeft < 3 && newlySelected.length === 0) {
+                alert("Du musst mindestens einen punktebringenden Würfel auswählen/halten, bevor du erneut würfelst!");
+                return;
+            }
+
+            // Lock selected dice from previous round
+            dice.forEach(d => { if (d.selected) d.locked = true; });
+
+            // Zewa-Check (Alles relevant): Wenn alle Würfel eingeloggt sind, gibt es 3 frische Würfel
+            if (dice.every(d => d.locked)) {
+                dice.forEach(d => { d.selected = false; d.locked = false; });
+                rollsLeft = 3; 
+                document.getElementById('shake-instruction').innerText = "🎉 ZEWA! Alle Würfel gewertet. +3 Extrawürfe!";
+            }
+
+            isRolling = true;
+            rollsLeft--;
+
+            // UI Animation Trigger
+            diceElements.forEach((el, idx) => {
+                if (!dice[idx].locked) {
+                    el.classList.add('rolling');
+                }
+            });
+
+            setTimeout(() => {
+                // Würfelwerte generieren
+                diceElements.forEach((el, idx) => {
+                    if (!dice[idx].locked) {
+                        dice[idx].value = Math.floor(Math.random() * 6) + 1;
+                        el.classList.remove('rolling');
+                    }
+                });
+
+                isRolling = false;
+                evaluateCurrentRoll();
+                updateUI();
+            }, 600);
+        }
+
+        // Auswertung nach Verdoppel-Regel & Relevanz
+        function evaluateCurrentRoll() {
+            // Zähle nur die aktuell nicht fixierten Würfel
+            let activeDiceValues = dice.filter(d => !d.locked).map(d => d.value);
+            
+            // Frequenz-Map erstellen
+            let counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
+            activeDiceValues.forEach(v => counts[v]++);
+
+            let rollScorePossible = 0;
+            let relevantDiceCount = 0;
+
+            // 1er und 5er Einzelwerte & Pasch-Berechnung (Verdoppel-Regel)
+            for (let num = 1; num <= 6; num++) {
+                let count = counts[num];
+                if (count >= 3) {
+                    let base = (num === 1) ? 1000 : num * 100;
+                    // Verdoppelungsregel für jeden Würfel über den Dritten hinaus
+                    let multiplier = Math.pow(2, count - 3);
+                    rollScorePossible += base * multiplier;
+                    relevantDiceCount += count;
+                } else if (count > 0) {
+                    if (num === 1) { rollScorePossible += count * 100; relevantDiceCount += count; }
+                    if (num === 5) { rollScorePossible += count * 50; relevantDiceCount += count; }
+                }
+            }
+
+            // Fehlwurf-Erkennung (Verwürfelt)
+            if (rollScorePossible === 0) {
+                turnScore = 0; 
+                rollsLeft = 0;
+                document.getElementById('shake-instruction').innerText = "❌ Verwürfelt! Keine gültige Kombination.";
+            } else {
+                currentRollScore = rollScorePossible;
+            }
+        }
+
+        // Tap on individual die to select it
+        diceElements.forEach(el => {
+            el.addEventListener('touchstart', (e) => {
+                const idx = parseInt(el.getAttribute('data-index'), 10);
+                toggleSelectDie(idx);
+            }, { passive: true });
+
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.getAttribute('data-index'), 10);
+                toggleSelectDie(idx);
+            });
+        });
+
+        function toggleSelectDie(idx) {
+            if (isRolling || dice[idx].locked || rollsLeft === 3) return;
+            
+            // Nur 1er, 5er oder Teil eines Paschs dürfen angewählt werden (Vereinfachte Validierung)
+            const val = dice[idx].value;
+            let activeDiceValues = dice.filter(d => !d.locked).map(d => d.value);
+            let count = activeDiceValues.filter(v => v === val).length;
+
+            if (val === 1 || val === 5 || count >= 3) {
+                dice[idx].selected = !dice[idx].selected;
+                updateUI();
+            }
+        }
+
+        // Banken / Punkte sichern
+        function bankPoints() {
+            if (isRolling) return;
+            
+            // Berechne Punkte der selektierten (aber noch nicht gelockten) Würfel für die Bank
+            // Für diese Implementierung addieren wir das Zwischenergebnis des aktuellen gültigen Wurfs
+            turnScore += currentRollScore;
+            players[currentPlayerIdx].score += turnScore;
+
+            if (players[currentPlayerIdx].score >= 10000) {
+                alert(`👑 ${players[currentPlayerIdx].name} hat die 10.000 Punkte erreicht und gewinnt das Spiel!`);
+                location.reload();
+                return;
+            }
+
+            nextPlayer();
+        }
+
+        function nextPlayer() {
+            currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+            
+            // Zeige Handover Screen
+            document.getElementById('handover-message').innerText = `Bitte das iPhone weitergeben an: ${players[currentPlayerIdx].name}`;
+            handoverOverlay.classList.add('active');
+        }
+
+        btnHandoverConfirm.addEventListener('click', () => {
+            handoverOverlay.classList.remove('active');
+            initTurn();
+            document.getElementById('shake-instruction').innerText = "📱 iPhone schütteln oder hier klicken zum Würfeln";
+            updateUI();
+        });
+
+        // Fallbacks & Bank Buttons
+        btnRollFallback.addEventListener('click', executeRoll);
+        btnBank.addEventListener('click', () => {
+            if (rollsLeft === 3) return; // Noch gar nicht gewürfelt
+            bankPoints();
+        });
+
+        // UI Synchronisation
+        function updateUI() {
+            // Scoreboard
+            const scoreboard = document.getElementById('scoreboard');
+            scoreboard.innerHTML = '';
+            players.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = `score-row ${idx === currentPlayerIdx ? 'active-p' : ''}`;
+                row.innerHTML = `<span>${p.name} ${idx === currentPlayerIdx ? '▶' : ''}</span><span>${p.score} Pkt.</span>`;
+                scoreboard.appendChild(row);
+            });
+
+            // Turn Info
+            document.getElementById('current-player-display').innerText = players[currentPlayerIdx].name;
+            document.getElementById('turn-stats-display').innerText = `Würfe übrig: ${rollsLeft} | Wurf-Wert: ${currentRollScore} | Runden-Gesamt: ${turnScore}`;
+
+            // Dice Elements sync
+            dice.forEach((d, idx) => {
+                const el = diceElements[idx];
+                el.innerText = d.value;
+                
+                el.className = 'die';
+                if (d.selected) el.classList.add('selected');
+                if (d.locked) el.classList.add('locked');
+            });
+
+            // Button Control
+            btnBank.disabled = (rollsLeft === 3);
+            if (rollsLeft === 0 && !dice.every(d => d.locked)) {
+                // Keine Würfe mehr und kein Zewa? Automatisch weitergeben nach Timeout
+                setTimeout(() => {
+                    if(handoverOverlay.classList.contains('active') === false && rollsLeft === 0) {
+                         nextPlayer();
+                    }
+                }, 2500);
+            }
+        }
+    </script>
+</body>
+</html>
