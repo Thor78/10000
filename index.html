@@ -501,7 +501,7 @@
             }, 600);
         }
 
-        // Scoring Evaluation
+        // Scoring Evaluation - AKTUALISIERT: turnScore wird hier berechnet!
         function evaluateCurrentRoll() {
             let activeDiceValues = dice.filter(d => !d.locked).map(d => d.value);
             
@@ -527,7 +527,9 @@
                 rollsLeft = 0;
                 document.getElementById('shake-instruction').innerText = "❌ Verwürfelt!";
             } else {
+                // WICHTIG: Hier wird der Gesamtscore der Runde aktualisiert
                 currentRollScore = rollScorePossible;
+                turnScore += currentRollScore; // Akkumuliere alle Würfe dieser Runde
             }
         }
 
@@ -558,11 +560,11 @@
             }
         }
 
-        // Bank Points
+        // Bank Points - KORRIGIERT: Einfach turnScore addieren (der enthält bereits alle Würfe)
         function bankPoints() {
             if (isRolling) return;
             
-            turnScore += currentRollScore;
+            // turnScore enthält bereits die Summe aller Würfe dieser Runde
             players[currentPlayerIdx].score += turnScore;
 
             if (players[currentPlayerIdx].score >= 10000) {
@@ -584,7 +586,7 @@
             handoverOverlay.classList.add('active');
         }
 
-        // Scoreboard aktualisieren - zeigt ALLE aktuellen Scores
+        // Scoreboard aktualisieren - zeigt ALLE aktuellen Scores mit korrektem Highlighting
         function updateScoreboard() {
             const scoreboard = document.getElementById('scoreboard');
             scoreboard.innerHTML = '';
